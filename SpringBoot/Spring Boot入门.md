@@ -4382,6 +4382,12 @@ public void createBind() {
 }
 ~~~
 
+### 3、Kafka
+
+
+
+
+
 ## 十一、检索
 
 ### 1、ElasticSearch简介

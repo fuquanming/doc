@@ -1,3 +1,5 @@
+
+
 # 一、微服务概述
 
 ## 1、微服务是什么
@@ -1313,27 +1315,164 @@ management:
 
 
 
-
-
 # 八、配置中心Config
 
 SpringCloud Config范围服务端和客户端两部分。
 
 服务端也称为分布式配置中心，它是一个独立的微服务应用，用来连接配置服务器并为客户端提供获取配置信息，加密/解密信息等访问接口。
 
+一个配置中心提供的核心功能应该有什么
+
+- 提供服务端和客户端支持
+- 集中管理各环境的配置文件
+- 配置文件修改之后，可以快速的生效
+- 可以进行版本管理
+- 支持大的并发查询
+- 支持各种语言
+
+Spring Cloud Config项目是一个解决分布式系统的配置管理方案。它包含了Client和Server两个部分，server提供配置文件的存储、以接口的形式将配置文件的内容提供出去，client通过接口获取数据、并依据此数据初始化自己的应用。Spring cloud使用git或svn存放配置文件，默认情况下使用git。
+
+首先在github上面创建了一个文件夹config用来存放配置文件，我们创建以下三个配置文件：
+
+~~~properties
+// 开发环境
+fcc-config-dev.properties
+// 测试环境
+fcc-config-test.properties
+// 生产环境
+fcc-config-pro.properties
+~~~
+
+每个配置文件中都写一个属性fcc.hello,属性值分别是 hello dev/test/pro 。下面我们开始配置server端
+
 ## 1、服务端
 
+### 1、单机版
 
+git的服务端，添加如下配置
 
+~~~xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-config-server</artifactId>
+</dependency>
+~~~
 
+~~~yml
+server:
+    port: 8001
+spring:
+    application:
+        name: spring-cloud-config-server
+    cloud:
+        config:
+          server:
+            git:
+              uri: https://gitee.com/fuquanming/conf     # 配置git仓库的地址
+              # search-paths: config                                   # git仓库地址下的相对地址，可以配置多个，用,分割。
+              username:                                                   # git仓库的账号
+              password:                                                   # git仓库的密码
+~~~
 
+~~~java
+@EnableConfigServer // 开启配置中心服务
+@SpringBootApplication
+public class ConfigServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ConfigServerApplication.class, args);
+    }
+}
+~~~
 
+访问地址：http://localhost:8001/fcc-config-dev.properties，http://localhost:8001/fcc-config-dev.yml，
+
+http://localhost:8001/master/fcc-config-dev.properties
+
+仓库中的配置文件会被转换成web接口，访问可以参照以下的规则：
+
+- /{application}/{profile}[/{label}]
+- /{application}-{profile}.yml
+- /{label}/{application}-{profile}.yml
+- /{application}-{profile}.properties
+- /{label}/{application}-{profile}.properties
+
+以fcc-config-dev.properties为例子，它的application是fcc-config，profile是dev，master是label。client会根据填写的参数来选择读取对应的配置。
+
+### 2、高可用集群
 
 
 
 ## 2、客户端
 
+客户端添加如下配置：
 
+~~~xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-config</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-test</artifactId>
+    <scope>test</scope>
+</dependency>
+~~~
+
+新增bootstrap.yml和application.yml文件
+
+bootstrap.yml
+
+~~~yml
+spring:
+ cloud:
+  config:   
+   name: fcc-config                 #对应{application}
+   uri: http://localhost:8001/		#配置中心的具体地址
+   label: master                    #对应git的分支。如果配置中心使用的是本地存储，则该参数无用
+   profile: dev                     #对应{profile}部分
+~~~
+
+**这些与spring-cloud相关的属性必须配置在bootstrap.properties中，config部分内容才能被正确加载。因为config的相关配置会先于application.properties，而bootstrap.properties的加载也是先于application.properties**
+
+application.yml
+
+~~~yml
+server:
+    port: 8010
+spring:
+    application:
+        name: spring-cloud-config-client    
+~~~
+
+~~~java
+@RestController
+public class ConfigClientController {
+
+    @Value("${fcc.hello}")
+    private String hello;
+    
+    @GetMapping("/hello")
+    public String hello() {
+        return hello;
+    }
+    
+}
+~~~
+
+~~~java
+@SpringBootApplication
+public class ConfigClientApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ConfigClientApplication.class, args);
+    }
+}
+~~~
+
+访问http://127.0.0.1:8010/hello，返回fcc.hello的配置信息
 
 
 
